@@ -395,7 +395,9 @@ ip4_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp)
     IPH_CHKSUM_SET(iphdr, (u16_t)(IPH_CHKSUM(iphdr) + PP_HTONS(0x100)));
   }
 
-  LWIP_DEBUGF(IP_DEBUG, ("ip4_forward: forwarding packet to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+  LWIP_DEBUGF(IP_DEBUG, ("ip4_forward: forwarding packet from %"U16_F".%"U16_F".%"U16_F".%"U16_F" to %"U16_F".%"U16_F".%"U16_F".%"U16_F"\n",
+                         ip4_addr1_16(ip4_current_src_addr()), ip4_addr2_16(ip4_current_src_addr()),
+                         ip4_addr3_16(ip4_current_src_addr()), ip4_addr4_16(ip4_current_src_addr()),
                          ip4_addr1_16(ip4_current_dest_addr()), ip4_addr2_16(ip4_current_dest_addr()),
                          ip4_addr3_16(ip4_current_dest_addr()), ip4_addr4_16(ip4_current_dest_addr())));
 
