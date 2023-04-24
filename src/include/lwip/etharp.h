@@ -91,11 +91,14 @@ int etharp_get_entry(size_t i, ip4_addr_t **ipaddr, struct netif **netif, struct
 err_t etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
 err_t etharp_query(struct netif *netif, const ip4_addr_t *ipaddr, struct pbuf *q);
 err_t etharp_request(struct netif *netif, const ip4_addr_t *ipaddr);
+void forward_arp_to_slip(struct netif * eth_if, const ip4_addr_t * src_ip_addr, const ip4_addr_t * dst_ip_addr, bool is_reply);
+err_t etharp_lying(struct netif * netif, const ip4_addr_t * src_ip_addr, const ip4_addr_t * dst_ip_addr, bool is_reply);
 /** For Ethernet network interfaces, we might want to send "gratuitous ARP";
  *  this is an ARP packet sent by a node in order to spontaneously cause other
  *  nodes to update an entry in their ARP cache.
  *  From RFC 3220 "IP Mobility Support for IPv4" section 4.6. */
 #define etharp_gratuitous(netif) etharp_request((netif), netif_ip4_addr(netif))
+err_t etharp_gratuitous_lying(struct netif * netif, const ip4_addr_t * ipaddr);
 void etharp_cleanup_netif(struct netif *netif);
 
 #if ETHARP_SUPPORT_STATIC_ENTRIES

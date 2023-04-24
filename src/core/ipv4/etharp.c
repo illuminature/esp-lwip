@@ -736,6 +736,8 @@ etharp_input(struct pbuf *p, struct netif *netif)
         /* { for_us == 0 and netif->ip_addr.addr != 0 } */
         LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP request was not for us.\n"));
       }
+      if (!for_us)
+        forward_arp_to_slip(netif, &sipaddr, &dipaddr, false);
       break;
     case PP_HTONS(ARP_REPLY):
       /* ARP reply. We already updated the ARP cache earlier. */
@@ -747,6 +749,8 @@ etharp_input(struct pbuf *p, struct netif *netif)
        * @todo How should we handle redundant (fail-over) interfaces? */
       dhcp_arp_reply(netif, &sipaddr);
 #endif /* (LWIP_DHCP && DHCP_DOES_ARP_CHECK) */
+      if (!for_us)
+        forward_arp_to_slip(netif, &sipaddr, &dipaddr, true);
       break;
     default:
       LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_input: ARP unknown opcode type %"S16_F"\n", lwip_htons(hdr->opcode)));
@@ -1204,6 +1208,7 @@ etharp_raw(struct netif *netif, const struct eth_addr *ethsrc_addr,
 static err_t
 etharp_request_dst(struct netif *netif, const ip4_addr_t *ipaddr, const struct eth_addr *hw_dst_addr)
 {
+  forward_arp_to_slip(netif, netif_ip4_addr(netif), ipaddr, false);
   return etharp_raw(netif, (struct eth_addr *)netif->hwaddr, hw_dst_addr,
                     (struct eth_addr *)netif->hwaddr, netif_ip4_addr(netif), &ethzero,
                     ipaddr, ARP_REQUEST);
@@ -1223,6 +1228,41 @@ etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
 {
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
   return etharp_request_dst(netif, ipaddr, &ethbroadcast);
+}
+
+void __attribute__((weak))
+forward_arp_to_slip(struct netif * eth_if, const ip4_addr_t * src_ip_addr, const ip4_addr_t * dst_ip_addr, bool is_reply)
+{
+}
+
+err_t
+etharp_lying(struct netif * netif, const ip4_addr_t * src_ip_addr, const ip4_addr_t * dst_ip_addr, bool is_reply)
+{
+  if (ip4_addr_isany(dst_ip_addr) || ip4_addr_isbroadcast(dst_ip_addr, netif) || ip4_addr_ismulticast(dst_ip_addr))
+    // Shouldn't be possible, but don't want to pollute the ARP table with them if they slip through
+    return ERR_ARG;
+  struct eth_addr * target_hw_addr;
+  ssize_t table_index = etharp_find_addr(netif, dst_ip_addr, &target_hw_addr, &dst_ip_addr);
+  const struct eth_addr * dst_hw_addr = &ethbroadcast;
+  if (table_index >= 0)
+    dst_hw_addr = target_hw_addr;
+  return etharp_raw(
+    netif, (struct eth_addr *)netif->hwaddr, dst_hw_addr,
+    (struct eth_addr *)netif->hwaddr, src_ip_addr, dst_hw_addr, dst_ip_addr, is_reply ? ARP_REPLY : ARP_REQUEST);
+}
+
+err_t
+etharp_gratuitous_lying(struct netif * netif, const ip4_addr_t * ipaddr)
+{
+  return etharp_raw(
+    netif,
+    (struct eth_addr *)netif->hwaddr,
+    &ethbroadcast,
+    (struct eth_addr *)netif->hwaddr,
+    ipaddr,
+    &ethzero,
+    ipaddr,
+    ARP_REQUEST);
 }
 
 #endif /* LWIP_IPV4 && LWIP_ARP */

@@ -690,6 +690,10 @@ ip_napt_forward(struct pbuf *p, struct ip_hdr *iphdr, struct netif *inp, struct 
   if (!inp->napt)
     return ERR_OK;
 
+  /* Don't NAT source addresses on the output subnet, bridge them instead */
+  if (ip4_addr_netcmp(&iphdr->src, netif_ip4_addr(outp), netif_ip4_netmask(outp)))
+    return ERR_OK;
+
 #if LWIP_ICMP
   /* NAPT for ICMP Echo Request using identifier */
   if (IPH_PROTO(iphdr) == IP_PROTO_ICMP) {
